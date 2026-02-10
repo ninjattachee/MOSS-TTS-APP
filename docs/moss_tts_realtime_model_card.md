@@ -26,6 +26,12 @@ By tightly integrating multi-turn context modeling with low-latency streaming sy
 
 ---
 
+### 1.3 Released Model
+**Recommended decoding hyperparameters**
+| Model | temperature | top_p | top_k | repetition_penalty | repetition_window
+|---|---:|---:|---:|---:|---:|
+| **MOSS-TTS-Realtime** | 0.8 | 0.6 | 30 | 1.1 | 50 |
+
 ## 2. Quickstart
 
 ### Environment Setup
@@ -67,6 +73,11 @@ reference_audio_path = ["./audio/prompt_audio.mp3", "./audio/prompt_audio1.mp3"]
 result = inferencer.generate(
     text=text,
     reference_audio_path=reference_audio_path,
+    temperature=0.8,
+    top_p = 0.6,
+    top_k = 30,
+    repetition_penalty = 1.1,
+    repetition_window = 50,
     device = device,
 )
 

@@ -176,7 +176,7 @@ def run_one_turn(
     out_path: Path | None = None,
     sample_rate: int = SAMPLE_RATE,
 ) -> None:
-    print(f"\n[TTS] assistant ({len(assistant_text)} 字): {assistant_text[:60]}...")
+    print(f"\n[TTS] assistant len({len(assistant_text)}): {assistant_text[:60]}...")
 
     decoder = AudioStreamDecoder(
         codec,
@@ -233,13 +233,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--decode_chunk_frames", type=int, default=3)
     p.add_argument("--decode_overlap_frames", type=int, default=0)
 
-    p.add_argument("--temperature", type=float, default=1.0)
-    p.add_argument("--top_p", type=float, default=0.95)
-    p.add_argument("--top_k", type=int, default=50)
-    p.add_argument("--repetition_penalty", type=float, default=1.0)
-    p.add_argument("--repetition_window", type=int, default=0)
+    p.add_argument("--temperature", type=float, default=0.8)
+    p.add_argument("--top_p", type=float, default=0.6)
+    p.add_argument("--top_k", type=int, default=30)
+    p.add_argument("--repetition_penalty", type=float, default=1.1)
+    p.add_argument("--repetition_window", type=int, default=50)
     p.add_argument("--no_sample", action="store_true")
-    p.add_argument("--max_length", type=int, default=1000)
+    p.add_argument("--max_length", type=int, default=3000)
     p.add_argument("--seed", type=int, default=None)
 
     p.add_argument("--delta_chunk_chars", type=int, default=1)

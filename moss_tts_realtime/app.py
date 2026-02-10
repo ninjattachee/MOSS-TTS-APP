@@ -27,11 +27,11 @@ import torch._dynamo
 torch._dynamo.config.cache_size_limit = 64
 
 SAMPLE_RATE = 24000
-CODEC_MODEL_PATH = "OpenMOSS-Team/MOSS-Audio-Tokenizer"
+CODEC_MODEL_PATH = "/root/MOSS-TTS-Realtime/MOSS-Audio-Tokenizer"
 MODEL_PATH = (
-    "OpenMOSS-Team/MOSS-TTS-Realtime"
+    "/root/ckpts/models/mossttsrealtime"
 )
-TOKENIZER_PATH = "OpenMOSS-Team/MOSS-TTS-Realtime"
+TOKENIZER_PATH = "/root/ckpts/models/mossttsrealtime"
 PROMPT_WAV = "./audio/prompt_audio1.mp3"
 USER_WAV = "./audio/user1.wav"
 
@@ -574,7 +574,7 @@ STREAM_PLAYER_HTML = """
 }
 </style>
 <div id="pcm-stream-status" style="font-size: 12px; color: #555;">
-  Live playback uses Web Audio API. Click Generate to unlock audio.
+  Live playback uses Web Audio API. Click Generate to unlock audio. First load may take a while.
 </div>
 <div id="pcm-stream-meta" style="font-size: 12px; color: #333; margin: 6px 0;">
   <div>Now Playing Chunk: <span id="pcm-stream-playing">-</span></div>
@@ -695,7 +695,7 @@ function handlePayloadObject(payload) {
     }
     setPlaying("-");
     setYielded("-");
-    setStatus("Live playback uses Web Audio API. Click Generate to unlock audio.");
+    setStatus("Live playback uses Web Audio API. Click Generate to unlock audio. First load may take a while.");
     return;
   }
   const idx = payload.idx ?? 0;
@@ -798,6 +798,7 @@ def _build_demo(args: argparse.Namespace):
 
     with gr.Blocks(title="MossTTSRealtime") as demo:
         gr.Markdown("MossTTSRealtime demo")
+        gr.Markdown("Note: The first run may take a while to load the model.")
         gr.HTML(STREAM_PLAYER_HTML, js_on_load=STREAM_PLAYER_JS)
 
         with gr.Row():

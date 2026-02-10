@@ -24,4 +24,4 @@ The model adopts a hierarchical input design in which text tokens and speech tok
 ------
 
 ## 3. Usage
-[MOSS-TTS-Realtime Usage](../moss_tts_realtime_model_card.md)
+[MOSS-TTS-Realtime Usage](../docs/moss_tts_realtime_model_card.md)

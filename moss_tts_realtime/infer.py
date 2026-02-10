@@ -28,6 +28,11 @@ def main(model_path, codec_path):
     result = inferencer.generate(
         text=text,
         reference_audio_path=reference_audio_path,
+        temperature=0.8,
+        top_p = 0.6,
+        top_k = 30,
+        repetition_penalty = 1.1,
+        repetition_window = 50,
         device = device,
     )
 

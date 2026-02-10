@@ -201,13 +201,13 @@ def main():
     p.add_argument("--decode_chunk_frames", type=int, default=3)
     p.add_argument("--decode_overlap_frames", type=int, default=0)
 
-    p.add_argument("--temperature", type=float, default=1.0)
-    p.add_argument("--top_p", type=float, default=0.95)
-    p.add_argument("--top_k", type=int, default=50)
-    p.add_argument("--repetition_penalty", type=float, default=1.0)
-    p.add_argument("--repetition_window", type=int, default=0)
+    p.add_argument("--temperature", type=float, default=0.8)
+    p.add_argument("--top_p", type=float, default=0.6)
+    p.add_argument("--top_k", type=int, default=30)
+    p.add_argument("--repetition_penalty", type=float, default=1.1)
+    p.add_argument("--repetition_window", type=int, default=50)
     p.add_argument("--no_sample", action="store_true")
-    p.add_argument("--max_length", type=int, default=1000)
+    p.add_argument("--max_length", type=int, default=3000)
     p.add_argument("--seed", type=int, default=None)
 
     # 模拟 LLM streaming 参数
@@ -301,8 +301,8 @@ def main():
     )
 
     print(f"[INFO] Simulate LLM streaming output, each time {args.delta_chunk_chars} tokens"
-          f"，间隔 {args.delta_delay_s}s")
-    print(f"[INFO] assistant_text ({len(args.assistant_text)} 字): "
+          f", interval {args.delta_delay_s}s")
+    print(f"[INFO] assistant_text len({len(args.assistant_text)} ): "
           f"{args.assistant_text[:60]}...")
 
     text_deltas = fake_llm_text_stream(
