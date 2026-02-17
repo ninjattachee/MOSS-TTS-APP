@@ -9,7 +9,7 @@ import orjson
 import gradio as gr
 import numpy as np
 import torch
-from transformers import AutoModel, AutoProcessor
+from transformers import AutoModel, AutoProcessor, GenerationConfig
 
 # Disable the broken cuDNN SDPA backend
 torch.backends.cuda.enable_cudnn_sdp(False)
@@ -18,7 +18,9 @@ torch.backends.cuda.enable_flash_sdp(True)
 torch.backends.cuda.enable_mem_efficient_sdp(True)
 torch.backends.cuda.enable_math_sdp(True)
 
-MODEL_PATH = "OpenMOSS-Team/MOSS-TTS"
+# Default to Local (1.7B) for GPUs with limited VRAM; use MOSS-TTS (8B) for high-end GPUs
+MODEL_PATH = "OpenMOSS-Team/MOSS-TTS-Local-Transformer"
+MODEL_PATH_DELAY_8B = "OpenMOSS-Team/MOSS-TTS"
 DEFAULT_ATTN_IMPLEMENTATION = "auto"
 DEFAULT_MAX_NEW_TOKENS = 4096
 CONTINUATION_NOTICE = (
@@ -77,6 +79,43 @@ def build_example_rows() -> list[tuple[str, str, str]]:
 EXAMPLE_ROWS = build_example_rows()
 
 
+def _is_local_model(model_path: str) -> bool:
+    """True if model uses MossTTSLocal (generation_config API), else MossTTSDelay (kwargs API)."""
+    return "Local" in model_path or "local" in model_path.lower()
+
+
+class DelayGenerationConfig(GenerationConfig):
+    """Generation config for MossTTSLocal (MOSS-TTS-Local-Transformer)."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.layers = kwargs.get("layers", [{} for _ in range(32)])
+        self.do_samples = kwargs.get("do_samples", None)
+        self.n_vq_for_inference = 32
+
+
+def _build_local_generation_config(processor, model_path: str, model):
+    """Build generation config for MossTTSLocal."""
+    cfg = DelayGenerationConfig.from_pretrained(model_path)
+    cfg.pad_token_id = processor.tokenizer.pad_token_id
+    cfg.eos_token_id = 151653
+    cfg.max_new_tokens = 1000000
+    cfg.temperature = 1.0
+    cfg.top_p = 0.95
+    cfg.top_k = 100
+    cfg.repetition_penalty = 1.1
+    cfg.use_cache = True
+    cfg.do_sample = False
+    cfg.n_vq_for_inference = model.channels - 1
+    cfg.do_samples = [True] * model.channels
+    cfg.layers = [
+        {"repetition_penalty": 1.0, "temperature": 1.5, "top_p": 1.0, "top_k": 50},
+    ] + [
+        {"repetition_penalty": 1.1, "temperature": 1.0, "top_p": 0.95, "top_k": 50},
+    ] * (model.channels - 1)
+    return cfg
+
+
 @functools.lru_cache(maxsize=1)
 def load_backend(model_path: str, device_str: str, attn_implementation: str):
     device = torch.device(device_str if torch.cuda.is_available() else "cpu")
@@ -105,7 +144,10 @@ def load_backend(model_path: str, device_str: str, attn_implementation: str):
     model.eval()
 
     sample_rate = int(getattr(processor.model_config, "sampling_rate", 24000))
-    return model, processor, device, sample_rate
+    generation_config = None
+    if _is_local_model(model_path):
+        generation_config = _build_local_generation_config(processor, model_path, model)
+    return model, processor, device, sample_rate, generation_config
 
 
 def resolve_attn_implementation(requested: str, device: torch.device, dtype: torch.dtype) -> str | None:
@@ -305,7 +347,7 @@ def run_inference(
     max_new_tokens: int,
 ):
     started_at = time.monotonic()
-    model, processor, torch_device, sample_rate = load_backend(
+    model, processor, torch_device, sample_rate, generation_config = load_backend(
         model_path=model_path,
         device_str=device,
         attn_implementation=attn_implementation,
@@ -325,15 +367,24 @@ def run_inference(
     attention_mask = batch["attention_mask"].to(torch_device)
 
     with torch.no_grad():
-        outputs = model.generate(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            max_new_tokens=int(max_new_tokens),
-            audio_temperature=float(temperature),
-            audio_top_p=float(top_p),
-            audio_top_k=int(top_k),
-            audio_repetition_penalty=float(repetition_penalty),
-        )
+        if generation_config is not None:
+            # MossTTSLocal (MOSS-TTS-Local-Transformer): use generation_config
+            outputs = model.generate(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                generation_config=generation_config,
+            )
+        else:
+            # MossTTSDelay (MOSS-TTS 8B): use kwargs API
+            outputs = model.generate(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                max_new_tokens=int(max_new_tokens),
+                audio_temperature=float(temperature),
+                audio_top_p=float(top_p),
+                audio_top_k=int(top_k),
+                audio_repetition_penalty=float(repetition_penalty),
+            )
 
     messages = processor.decode(outputs)
     if not messages or messages[0] is None:
@@ -576,7 +627,12 @@ def build_demo(args: argparse.Namespace):
 
 def main():
     parser = argparse.ArgumentParser(description="MossTTS Gradio Demo")
-    parser.add_argument("--model_path", type=str, default=MODEL_PATH)
+    parser.add_argument(
+        "--model_path",
+        type=str,
+        default=MODEL_PATH,
+        help=f"Model path (default: {MODEL_PATH}, 1.7B for limited VRAM; use {MODEL_PATH_DELAY_8B} for 8B on high-end GPUs)",
+    )
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--attn_implementation", type=str, default=DEFAULT_ATTN_IMPLEMENTATION)
     parser.add_argument("--host", type=str, default="0.0.0.0")
